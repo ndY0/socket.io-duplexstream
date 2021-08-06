@@ -1,0 +1,27 @@
+{
+  "name": "socket.io-duplexstream",
+  "version": "1.0.0",
+  "description": "an duplex stream api for socket.io",
+  "main": "index.ts",
+  "author": "ndy0",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.24",
+    "@types/node": "^16.4.13",
+    "@types/uuid": "^8.3.1",
+    "jest": "^27.0.6",
+    "reflect-metadata": "^0.1.13",
+    "socket.io": "^4.1.3",
+    "socket.io-client": "^4.1.3",
+    "ts-jest": "^27.0.4",
+    "ts-node": "^10.1.0",
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "uuid": "^8.3.2"
+  }
+}
