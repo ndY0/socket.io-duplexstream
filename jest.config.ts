@@ -12,7 +12,7 @@ const config: Config.InitialOptions = {
   coverageReporters: ["text", "lcov"],
   collectCoverage: true,
   testMatch: ["**/src/**/?(*.)+(spec|test|e2e).[jt]s?(x)", "**/e2e/**/?(*.)+(spec|test|e2e).[jt]s?(x)"],
-  testPathIgnorePatterns: ["/mock/", "/node_modules/", "/lib/"]
+  testPathIgnorePatterns: ["/mock/", "/node_modules/", "/lib/"],
 };
 
 export default config;

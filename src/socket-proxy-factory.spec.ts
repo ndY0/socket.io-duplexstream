@@ -35,6 +35,18 @@ describe("SocketProxyFactory", () => {
         });
         wrapped.emit("test", stream1, stream2, {filename: "test.txt"});
     })
+    it("should wrap once of socket and decode every instance of stream it finds", (done) => {
+        const wrapped = SocketProxyFactory(socketMock as unknown as Socket);
+        const stream1 = new SocketStream(wrapped);
+        const stream2 = new SocketStream(wrapped);
+        wrapped.once("test", (stream1: SocketStream, stream2: SocketStream, data: any) => {
+            expect(stream1).toBeInstanceOf(SocketStream);
+            expect(stream2).toBeInstanceOf(SocketStream);
+            expect(data).toEqual({filename: "test.txt"});
+            done();
+        });
+        wrapped.emit("test", stream1, stream2, {filename: "test.txt"});
+    })
     it("should return the original prop if not emit or on", () => {
         function test() {}
         const mock = {

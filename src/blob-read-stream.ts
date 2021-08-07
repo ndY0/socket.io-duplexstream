@@ -10,8 +10,8 @@ class BlobReadStream extends Readable {
     _read(size: number): void {
         const newOffset = this.offset + size > this.size ? this.size : this.offset + size;
         const chunk = this.blob.slice(this.offset, newOffset);
-        chunk.text().then(data => {
-            this.push(data, 'binary')
+        chunk.arrayBuffer().then((data: ArrayBuffer) => {
+            this.push(Buffer.from(data))
             this.offset = newOffset;
             if(this.offset === this.size) {
                 this.push(null)

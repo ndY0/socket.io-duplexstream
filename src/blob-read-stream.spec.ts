@@ -20,7 +20,7 @@ describe("BlobReadStream", () => {
         const blobStream = new BlobReadStream(blob);
         const writable = writableMock();
         writable.on("close", () => {
-            expect(writable.result).toEqual(longText)
+            expect(writable.bufferResult.toString('utf-8')).toEqual(longText)
             done();
         })
         blobStream.pipe(writable);

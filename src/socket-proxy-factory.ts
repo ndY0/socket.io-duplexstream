@@ -18,9 +18,15 @@ const SocketProxyFactory = <T extends ServerSocket | ClientSocket>(sio: T): T =>
                     }
                     return target.on(event, wrappedListener);
                 }
-            } else{
-                return target[prop as keyof typeof target]
-            }
+            } else if (prop === 'once') {
+                return (event: string, listener: (...argz: any[]) => void) => {
+                    const wrappedListener = (...argzz: any[]) => {
+                        listener(...argzz.map((arg: any) => Object.keys(arg).every((key: string) => key === '@stream/uuid') ? decodeStream(arg, target) : arg))
+                    }
+                    return target.once(event, wrappedListener);
+                }
+            } 
+            return target[prop as keyof typeof target]
         }
     }) as T
 }

@@ -21,7 +21,7 @@ describe("serialization", () => {
             expect(stream).toBeInstanceOf(SocketStream);
         })
         it("should inflate an encoded stream, given it's representation and a server Socket", (done) => {
-            const server = new Server(3000);
+            const server = new Server(3005);
             server.on("connection", (sio: Socket) => {
                 
                 const stream = decodeStream({'@stream/uuid': '1291090192'}, sio);
@@ -31,7 +31,7 @@ describe("serialization", () => {
                 clientSio.close();
                 done();
             });
-            const manager = new Manager("http://localhost:3000")
+            const manager = new Manager("http://localhost:3005")
             const clientSio = manager.socket('/');
         })
     })
