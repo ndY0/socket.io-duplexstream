@@ -10,11 +10,13 @@ class BlobReadStream extends Readable {
     _read(size: number): void {
         const newOffset = this.offset + size > this.size ? this.size : this.offset + size;
         const chunk = this.blob.slice(this.offset, newOffset);
-            this.push(chunk, 'utf-8')
-        this.offset = newOffset;
-        if(this.offset === this.size) {
-            this.push(null)
-        }
+        chunk.text().then(data => {
+            this.push(data, 'binary')
+            this.offset = newOffset;
+            if(this.offset === this.size) {
+                this.push(null)
+            }
+        })
     }
     _destroy(error: Error | null, callback: (error?: Error | null) => void): void {
         delete this.blob

@@ -3,13 +3,8 @@ import {Socket as ServerSocket} from 'socket.io'
 import { decodeStream, encodeStream } from './stream-encoder';
 import { SocketStream } from './socket-stream';
 
-/**
- * 
- * @param sio todo
- */
-
-const SocketProxyFactory = (sio: ServerSocket | ClientSocket) => {
-    const wrappedSocket = new Proxy(sio, {
+const SocketProxyFactory = <T extends ServerSocket | ClientSocket>(sio: T): T => {
+    return new Proxy(sio, {
         get: (target: ServerSocket | ClientSocket, prop: string, receiver: any) => {
             if(prop === 'emit') {
                 return (event: string, ...argz: any[]) => {
@@ -27,7 +22,7 @@ const SocketProxyFactory = (sio: ServerSocket | ClientSocket) => {
                 return target[prop as keyof typeof target]
             }
         }
-    })
+    }) as T
 }
 
 export {SocketProxyFactory}

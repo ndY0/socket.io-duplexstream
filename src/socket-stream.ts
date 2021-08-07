@@ -11,35 +11,39 @@ class SocketStream extends Duplex {
         // retrieve remote stream id if present
         this.uuid = opt?.id || this.uuid;
         //handle distant stream events
-        sio.on(`@stream/${this.uuid}/close`, this.handleDistantClose);
-        sio.on(`@stream/${this.uuid}/error`, this.handleDistantError);
         sio.on(`@stream/${this.uuid}/end`, this.handleDistantEnd);
+        sio.on(`@stream/${this.uuid}/error`, this.handleDistantError);
 
         //send local stream events to distant
-        this.on("close", () => this.sio.emit(`@stream/${this.uuid}/close`));
-        this.on("error", (err: Error) => this.sio.emit(`@stream/${this.uuid}/error`, err));
-        this.on("end", () => this.sio.emit(`@stream/${this.uuid}/end`));
+        this.on("end", this.handleLocalEnd);
+        this.on("error", this.handleLocalError);
 
-        //on data from remote, push it to local as readable, use ack to retrieve backpressure
+        // on writable side, propagate source end event
+        this.on('pipe', <T extends NodeJS.ReadableStream>(source: T) => {
+            source.on("end", () => {
+                this.sio.emit(`@stream/${this.uuid}/data`, {chunk: null, encoding: 'buffer'}, this.handleDistantDataAck);
+            })
+        })
+
+        // on data from remote, push it to local as readable, use ack to retrieve backpressure
         sio.on(`@stream/${this.uuid}/data`, this.handleDistantData);
 
     }
     _destroy() {
         // remove every socket subscriptions, avoid memory leak
-        this.sio.off(`@stream/${this.uuid}/close`, this.handleDistantClose);
-        this.sio.off(`@stream/${this.uuid}/error`, this.handleDistantError);
         this.sio.off(`@stream/${this.uuid}/end`, this.handleDistantEnd);
+        this.sio.off(`@stream/${this.uuid}/error`, this.handleDistantError);
         this.sio.off(`@stream/${this.uuid}/data`, this.handleDistantData);
     }
     // write to distant, use acknoledgment to retrieve backpressure
     _write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
         if(! this.isDistantWritable) {
-            this.once('distant_drain', () => {
-                this.sio.emit(`@stream/${this.uuid}/data`, chunk, encoding, this.handleDistantDataAck);
+            this.sio.once(`@stream/${this.uuid}/distant_drain`, () => {
+                this.sio.emit(`@stream/${this.uuid}/data`, {chunk, encoding}, this.handleDistantDataAck);
                 callback(null);    
             })
         } else {
-            this.sio.emit(`@stream/${this.uuid}/data`, chunk, encoding, this.handleDistantDataAck);
+            this.sio.emit(`@stream/${this.uuid}/data`, {chunk, encoding}, this.handleDistantDataAck);
             callback(null);
         }
     }
@@ -47,27 +51,34 @@ class SocketStream extends Duplex {
         return true;
     }
     public pipe<T extends NodeJS.WritableStream>(destination: T, opt?: {end?: boolean}): T {
+        // on readable side, propagate drain events, so that streaming can resume
         destination.on('drain', () => {
-            this.emit('distant_drain');
+            this.sio.emit(`@stream/${this.uuid}/distant_drain`);
         })
         return super.pipe(destination, opt);
     }
     // on distant close, end local stream
-    private handleDistantClose() {
+    private handleDistantEnd = () => {
         this.end();
     };
-    private handleDistantError(err: Error) {
+    private handleDistantError = (err: Error) => {
         this.destroy(err);
     };
-    private handleDistantEnd() {
-        this.end();
-    };
-    private handleDistantData(chunk: Buffer, encoding: BufferEncoding, ack: (isWritable: boolean) => void) {
+    private handleDistantData = ({chunk, encoding}: {chunk: Buffer, encoding: BufferEncoding}, ack: (isWritable: boolean) => void) => {
         ack(this.push(chunk, encoding));
     };
 
-    private handleDistantDataAck(isWritable: boolean) {
+    private handleDistantDataAck = (isWritable: boolean) => {
         this.isDistantWritable = isWritable;
+    }
+
+    private handleLocalEnd = () => {
+        this.sio.emit(`@stream/${this.uuid}/end`);
+        this.destroy();
+    }
+
+    private handleLocalError = (err: Error) => {
+        this.sio.emit(`@stream/${this.uuid}/error`, err);
     }
 
     public getUuid() {

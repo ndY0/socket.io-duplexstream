@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from "buffer";
 import { BlobReadStream } from "./blob-read-stream";
 import "reflect-metadata";
 import { writableMock } from "../mock/writable.mock";
@@ -6,8 +7,8 @@ import { longText } from "../mock/long-test";
 describe("BlobReadStream", () => {
     let blob: Blob;
     beforeEach(() => {
-        blob = Buffer.from(longText) as unknown as Blob
-        (blob as any).size = (blob as unknown as Buffer).length;
+        const buffer = Buffer.from(longText) as unknown as Blob
+        blob = new NodeBlob([buffer]) as Blob;
     })
     it("should extends Readable, and have the blob and it's size as attributes", () => {
         const blobStream = new BlobReadStream(blob);
