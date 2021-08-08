@@ -3,14 +3,14 @@ import { Manager } from "socket.io-client";
 import { Server, Socket } from "socket.io";
 import { SocketStream } from "./socket-stream";
 import "reflect-metadata";
-import { Duplex, Readable } from "stream";
+import { Duplex } from "stream";
 import { createReadStream, readFileSync, ReadStream } from "fs";
 import { BlobReadStream } from "./blob-read-stream";
 import { writableMock } from "../mock/writable.mock";
 import { SocketProxyFactory } from "./socket-proxy-factory";
 import { slowWritableMock } from "../mock/slow-writable.mock";
 
-jest.setTimeout(100_000);
+jest.setTimeout(40_000);
 
 describe("SocketStream", () => {
     let stream: SocketStream;
@@ -24,7 +24,7 @@ describe("SocketStream", () => {
                 autoConnect: false
             })
             const sio = manager.socket('/test');
-            const stream = new SocketStream(sio);
+            const stream = new SocketStream().initialize(sio);
             expect(stream).toBeInstanceOf(Duplex);
             expect(typeof Reflect.get(stream, "uuid")).toEqual("string");
             expect(Reflect.get(stream, "sio")).toEqual(sio);
@@ -45,7 +45,7 @@ describe("SocketStream", () => {
             const server = new Server(3004);
             server.on("connection", (sio: Socket) => {
                 
-                const stream = new SocketStream(sio);
+                const stream = new SocketStream().initialize(sio);
                 expect(stream).toBeInstanceOf(Duplex);
                 expect(typeof Reflect.get(stream, "uuid")).toEqual("string");
                 expect(Reflect.get(stream, "sio")).toEqual(sio);
@@ -84,7 +84,7 @@ describe("SocketStream", () => {
             });
             const manager = new Manager("http://localhost:3003")
             const clientSio = SocketProxyFactory(manager.socket('/'));
-            const stream = new SocketStream(clientSio);
+            const stream = new SocketStream();
             clientSio.emit("stream", stream, {filename: "test.png"});
 
             const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
@@ -97,9 +97,8 @@ describe("SocketStream", () => {
             server.on("connection", (sio: Socket) => {
                 
                 const fileStream: ReadStream = createReadStream(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
-                const wrapped = SocketProxyFactory(sio)
-                const stream = new SocketStream(wrapped);
-                wrapped.emit("stream", stream, {filename: "test.png"});
+                const stream = new SocketStream();
+                SocketProxyFactory(sio).emit("stream", stream, {filename: "test.png"});
                 fileStream.pipe(stream);
             });
             const manager = new Manager("http://localhost:3002")
@@ -137,7 +136,7 @@ describe("SocketStream", () => {
             });
             const manager = new Manager("http://localhost:3001")
             const clientSio = SocketProxyFactory(manager.socket('/'));
-            const stream = new SocketStream(clientSio);
+            const stream = new SocketStream();
             clientSio.emit("stream", stream, {filename: "test.png"});
             const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
             const blob = new NodeBlob([fileBuffer]);
@@ -150,9 +149,8 @@ describe("SocketStream", () => {
             server.on("connection", (sio: Socket) => {
                 
                 const fileStream: ReadStream = createReadStream(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
-                const wrapped = SocketProxyFactory(sio)
-                const stream = new SocketStream(wrapped);
-                wrapped.emit("stream", stream, {filename: "test.png"});
+                const stream = new SocketStream();
+                SocketProxyFactory(sio).emit("stream", stream, {filename: "test.png"});
                 fileStream.pipe(stream);
                 fileStream.destroy(new Error("test"))
             });
@@ -169,7 +167,6 @@ describe("SocketStream", () => {
                 })
                 stream.pipe(writable);
             })
-            const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
         })
         it("should allow to stream data from the client to the server, in binary mode, backpressuring if needed", (done) => {
             const server = new Server(2999);
@@ -180,6 +177,7 @@ describe("SocketStream", () => {
                     const writable = slowWritableMock();
                     writable.on('close', () => {
                         expect(writable.bufferResult).toEqual(Buffer.concat(Array.from(Array(40).keys()).map(() => fileBuffer)));
+                        expect(handleDistantDataSpy).toHaveBeenCalledWith(false);
                         server.close();
                         clientSio.close();
                         done();
@@ -191,24 +189,27 @@ describe("SocketStream", () => {
             });
             const manager = new Manager("http://localhost:2999")
             const clientSio = SocketProxyFactory(manager.socket('/'));
-            const stream = new SocketStream(clientSio, {writableHighWaterMark: 200});
-            clientSio.emit("stream", stream, {filename: "test.png"});
+            const streamClient = new SocketStream({writableHighWaterMark: 200});
+            const handleDistantDataSpy = jest.spyOn(streamClient, "handleDistantDataAck" as any);
+            clientSio.emit("stream", streamClient, {filename: "test.png"});
 
             const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
             const blob = new NodeBlob(Array.from(Array(40).keys()).map(() => fileBuffer));
             const blobReadStream = new BlobReadStream(blob as Blob);
-            blobReadStream.pipe(stream);
+            blobReadStream.pipe(streamClient);
         })
         it("should allow to stream data from the server to the client, in binary mode, backpressuring if needed", (done) => {
             const server = new Server(2998);
+            let handleDistantDataSpy: jest.SpyInstance<any, unknown[]>;
             server.on("connection", (sio: Socket) => {
                 
                 const blob = new NodeBlob(Array.from(Array(40).keys()).map(() => fileBuffer));
                 const blobReadStream = new BlobReadStream(blob as Blob);
                 const wrapped = SocketProxyFactory(sio)
-                const stream = new SocketStream(wrapped, {highWaterMark: 200});
-                wrapped.emit("stream", stream, {filename: "test.png"});
-                blobReadStream.pipe(stream);
+                const streamServer = new SocketStream({highWaterMark: 200});
+                handleDistantDataSpy = jest.spyOn(streamServer, "handleDistantDataAck" as any);
+                wrapped.emit("stream", streamServer, {filename: "test.png"});
+                blobReadStream.pipe(streamServer);
             });
             const manager = new Manager("http://localhost:2998")
             const clientSio = SocketProxyFactory(manager.socket('/'));
@@ -217,6 +218,7 @@ describe("SocketStream", () => {
                 const writable = slowWritableMock();
                 writable.on('close', () => {
                     expect(writable.bufferResult).toEqual(Buffer.concat(Array.from(Array(40).keys()).map(() => fileBuffer)));
+                    expect(handleDistantDataSpy).toHaveBeenCalledWith(false);
                     server.close();
                     clientSio.close();
                     done();

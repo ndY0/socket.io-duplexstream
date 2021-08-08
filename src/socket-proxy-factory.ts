@@ -9,7 +9,7 @@ const SocketProxyFactory = <T extends ServerSocket | ClientSocket>(sio: T): T =>
             if(prop === 'emit') {
                 return (event: string, ...argz: any[]) => {
                     
-                    return target.emit(event, ...argz.map((arg: any) => arg instanceof SocketStream ? encodeStream(arg) : arg));
+                    return target.emit(event, ...argz.map((arg: any) => arg instanceof SocketStream ? encodeStream(arg, target) : arg));
                 }
             } else if (prop === 'on') {
                 return (event: string, listener: (...argz: any[]) => void) => {

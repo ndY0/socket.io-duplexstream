@@ -17,16 +17,16 @@ describe("SocketProxyFactory", () => {
     })
     it("should wrap emit of socket and encode every instance of stream it finds", () => {
         const wrapped = SocketProxyFactory(socketMock as unknown as Socket);
-        const stream1 = new SocketStream(wrapped);
-        const stream2 = new SocketStream(wrapped);
+        const stream1 = new SocketStream();
+        const stream2 = new SocketStream();
         wrapped.emit("test", stream1, stream2, {filename: "test.txt"});
         expect(socketMock.emit).toHaveBeenCalledTimes(1);
-        expect(socketMock.emit).toHaveBeenNthCalledWith(1, "test", encodeStream(stream1), encodeStream(stream2), {filename: "test.txt"})
+        expect(socketMock.emit).toHaveBeenNthCalledWith(1, "test", encodeStream(stream1, socketMock), encodeStream(stream2, socketMock), {filename: "test.txt"})
     })
     it("should wrap on of socket and decode every instance of stream it finds", (done) => {
         const wrapped = SocketProxyFactory(socketMock as unknown as Socket);
-        const stream1 = new SocketStream(wrapped);
-        const stream2 = new SocketStream(wrapped);
+        const stream1 = new SocketStream();
+        const stream2 = new SocketStream();
         wrapped.on("test", (stream1: SocketStream, stream2: SocketStream, data: any) => {
             expect(stream1).toBeInstanceOf(SocketStream);
             expect(stream2).toBeInstanceOf(SocketStream);
@@ -37,8 +37,8 @@ describe("SocketProxyFactory", () => {
     })
     it("should wrap once of socket and decode every instance of stream it finds", (done) => {
         const wrapped = SocketProxyFactory(socketMock as unknown as Socket);
-        const stream1 = new SocketStream(wrapped);
-        const stream2 = new SocketStream(wrapped);
+        const stream1 = new SocketStream();
+        const stream2 = new SocketStream();
         wrapped.once("test", (stream1: SocketStream, stream2: SocketStream, data: any) => {
             expect(stream1).toBeInstanceOf(SocketStream);
             expect(stream2).toBeInstanceOf(SocketStream);

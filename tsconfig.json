@@ -1,12 +1,18 @@
 {
     "compilerOptions": {
       "module": "commonjs",
+      "target": "ES5",
       "alwaysStrict": true,
       "declaration": true,
+      "declarationMap": true,
       "noImplicitAny": true,
+      "skipLibCheck": true,
       "types": ["node", "jest"],
       "removeComments": true,
       "preserveConstEnums": true,
-      "sourceMap": true
-    }
+      "sourceMap": true,
+      "outDir": "./lib"
+    },
+    "include": ["index.ts"],
+    "exclude": ["jest.config.ts"]
 }

@@ -5,17 +5,39 @@ import { v1 } from "uuid";
 
 class SocketStream extends Duplex {
     private uuid: string = v1();
+    private sio: ClientSocket | ServerSocket;
     private isDistantWritable: boolean = true;
     private isLocalWritable: boolean = true;
-    constructor(private sio: ClientSocket | ServerSocket, opt?: DuplexOptions & {id?: string}) {
+    constructor(opt?: DuplexOptions & {id?: string}) {
         super(opt);
         // retrieve remote stream id if present
         this.uuid = opt?.id || this.uuid;
         //handle distant stream events
-        sio.on(`@stream/${this.uuid}/error`, this.handleDistantError);
+        // sio.on(`@stream/${this.uuid}/error`, this.handleDistantError);
 
         //send local stream events to distant
         this.on("error", this.handleLocalError);
+        // this.on('pipe', <T extends NodeJS.ReadableStream>(source: T) => {
+        //     // on writable side, propagate end source event
+        //     source.on("end", () => {
+        //         this.sio.emit(`@stream/${this.uuid}/data`, {chunk: null, encoding: 'buffer'}, this.handleDistantDataAck);
+        //     })
+        //     // on writable side, propagate error source event
+        //     source.on('error', this.handleLocalError)
+        // })
+        // // this.on("drain", this.handleLocalDrain);
+
+        // // on data from remote, push it to local as readable, use ack to retrieve backpressure
+        // sio.on(`@stream/${this.uuid}/data`, this.handleDistantData);
+
+    }
+
+    public initialize(sio: ClientSocket | ServerSocket): SocketStream {
+        this.sio = sio;
+
+        //handle distant stream events
+        sio.on(`@stream/${this.uuid}/error`, this.handleDistantError);
+
         this.on('pipe', <T extends NodeJS.ReadableStream>(source: T) => {
             // on writable side, propagate end source event
             source.on("end", () => {
@@ -28,8 +50,9 @@ class SocketStream extends Duplex {
 
         // on data from remote, push it to local as readable, use ack to retrieve backpressure
         sio.on(`@stream/${this.uuid}/data`, this.handleDistantData);
-
+        return this;
     }
+
     _destroy() {
         // remove every socket subscriptions, avoid memory leak
         this.sio.off(`@stream/${this.uuid}/error`, this.handleDistantError);
