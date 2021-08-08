@@ -1,6 +1,6 @@
 {
   "name": "socket.io-duplexstream",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "a duplex binary stream api for socket.io",
   "main": "lib/index.js",
   "author": "ndy0",

@@ -5,7 +5,7 @@ import { SocketStream } from './socket-stream';
 
 const SocketProxyFactory = <T extends ServerSocket | ClientSocket>(sio: T): T => {
     return new Proxy(sio, {
-        get: (target: ServerSocket | ClientSocket, prop: string, receiver: any) => {
+        get: (target: ServerSocket | ClientSocket, prop: string) => {
             if(prop === 'emit') {
                 return (event: string, ...argz: any[]) => {
                     
