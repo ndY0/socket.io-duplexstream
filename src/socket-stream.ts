@@ -8,6 +8,7 @@ class SocketStream extends Duplex {
     private sio: ClientSocket | ServerSocket;
     private isDistantWritable: boolean = true;
     private isLocalWritable: boolean = true;
+    private isDistantReady: boolean = false;
     constructor(opt?: DuplexOptions & {id?: string}) {
         super(opt);
         // retrieve remote stream id if present
@@ -60,8 +61,13 @@ class SocketStream extends Duplex {
     }
     // write to distant, use acknoledgment to retrieve backpressure
     _write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+        // on distant drain, send more
         if(! this.isDistantWritable) {
             this.sio.once(`@stream/${this.uuid}/drain`, this.handleDistantDrain(chunk, encoding, callback))
+        // on distant ready signal, start pushing
+        } else if (! this.isDistantReady) {
+            this.sio.once(`@stream/${this.uuid}/start`, this.handleDistantReady(chunk, encoding, callback))
+            // push otherwise
         } else {
             this.sio.emit(`@stream/${this.uuid}/data`, {chunk, encoding}, this.handleDistantDataAck);
             callback(null);
@@ -80,7 +86,9 @@ class SocketStream extends Duplex {
             }
         })
         // on readable side local error, propagate to destination
-        this.on('error', (err: Error) => (destination as unknown as Writable).destroy(err))
+        this.on('error', (err: Error) => (destination as unknown as Writable).destroy(err));
+        // send ready to distant
+        this.sio.emit(`@stream/${this.uuid}/start`);
         return super.pipe(destination, opt);
     }
     private handleDistantError = (name: string, message: string) => {
@@ -91,11 +99,19 @@ class SocketStream extends Duplex {
         this.destroy(error);
     };
     private handleDistantData = ({chunk, encoding}: {chunk: Buffer, encoding: BufferEncoding}, ack: (isWritable: boolean) => void) => {
-        if(!this.push(chunk, encoding)) {
+        const isLocalWritable = this.push(chunk, encoding)
+        if(!isLocalWritable) {
             this.isLocalWritable = false;
-            ack(false);
+            ack(isLocalWritable);
         }
     };
+    private handleDistantReady = (chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
+        return () => {
+            this.isDistantReady = true;
+            this.sio.emit(`@stream/${this.uuid}/data`, {chunk, encoding}, this.handleDistantDataAck);
+            callback(null);
+        }
+    }
     private handleDistantDrain = (chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) => {
         return () => {
             this.isDistantWritable = true;

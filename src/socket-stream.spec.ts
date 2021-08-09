@@ -10,7 +10,7 @@ import { writableMock } from "../mock/writable.mock";
 import { SocketProxyFactory } from "./socket-proxy-factory";
 import { slowWritableMock } from "../mock/slow-writable.mock";
 
-jest.setTimeout(40_000);
+jest.setTimeout(50_000);
 
 describe("SocketStream", () => {
     let stream: SocketStream;
@@ -224,6 +224,67 @@ describe("SocketStream", () => {
                     done();
                 })
                 stream.pipe(writable);
+            })
+            const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
+        })
+        it("should allow to stream data from the client to the server, in binary mode, waiting for server to be ready before sending", (done) => {
+            const server = new Server(3003);
+            server.on("connection", (sio: Socket) => {
+                
+                SocketProxyFactory(sio).on("stream", (stream: SocketStream, data: any) => {
+                    expect(data).toEqual({filename: "test.png"});
+                    const writable = writableMock();
+                    writable.on('close', () => {
+                        expect(writable.bufferResult).toEqual(fileBuffer);
+                        server.close();
+                        clientSio.close();
+                        done();
+                    })
+                    // simulate delayed subscription
+                    setTimeout(() => {
+
+                        stream.pipe(writable);
+                    }, 1000)
+                })
+
+                
+            });
+            const manager = new Manager("http://localhost:3003")
+            const clientSio = SocketProxyFactory(manager.socket('/'));
+            const stream = new SocketStream();
+            clientSio.emit("stream", stream, {filename: "test.png"});
+
+            const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
+            const blob = new NodeBlob([fileBuffer]);
+            const blobReadStream = new BlobReadStream(blob as Blob);
+            blobReadStream.pipe(stream);
+        })
+        it("should allow to stream data from the server to the client, in binary mode, , waiting for server to be ready before sending", (done) => {
+            const server = new Server(3002);
+            server.on("connection", (sio: Socket) => {
+                
+                const fileStream: ReadStream = createReadStream(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
+                const stream = new SocketStream();
+                SocketProxyFactory(sio).emit("stream", stream, {filename: "test.png"});
+                fileStream.pipe(stream);
+            });
+            const manager = new Manager("http://localhost:3002")
+            const clientSio = SocketProxyFactory(manager.socket('/'));
+            clientSio.on("stream", (stream: SocketStream, data: any) => {
+                expect(data).toEqual({filename: "test.png"});
+                const writable = writableMock();
+                writable.on('end', () => console.log('ended as promised'))
+                writable.on('close', () => {
+                    expect(writable.bufferResult).toEqual(fileBuffer);
+                    server.close();
+                    clientSio.close();
+                    done();
+                })
+                // simulate delayed subscription
+                setTimeout(() => {
+
+                    stream.pipe(writable);
+                }, 1000)
             })
             const fileBuffer: Buffer = readFileSync(`${process.cwd()}/mock/datasource/PNG_transparency_demonstration_2.png`);
         })
