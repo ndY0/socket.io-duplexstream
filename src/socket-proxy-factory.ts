@@ -15,14 +15,14 @@ const SocketProxyFactory = <T extends ServerSocket | ClientSocket>(sio: T): T =>
             } else if (prop === 'on') {
                 return (event: string, listener: (...argz: any[]) => void) => {
                     const wrappedListener = (...argzz: any[]) => {
-                        listener(...argzz.map((arg: any) => Object.keys(arg).every((key: string) => key === '@stream/uuid') ? decodeStream(arg, target) : arg))
+                        listener(...argzz.map((arg: any) => arg && Object.keys(arg).every((key: string) => key === '@stream/uuid') ? decodeStream(arg, target) : arg))
                     }
                     return target.on(event, wrappedListener);
                 }
             } else if (prop === 'once') {
                 return (event: string, listener: (...argz: any[]) => void) => {
                     const wrappedListener = (...argzz: any[]) => {
-                        listener(...argzz.map((arg: any) => Object.keys(arg).every((key: string) => key === '@stream/uuid') ? decodeStream(arg, target) : arg))
+                        listener(...argzz.map((arg: any) => arg && Object.keys(arg).every((key: string) => key === '@stream/uuid') ? decodeStream(arg, target) : arg))
                     }
                     return target.once(event, wrappedListener);
                 }
